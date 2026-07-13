@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Greifer SHAPr21 Tray Support Task v9</title>
+<style>
+  body { margin:0; overflow:hidden; font-family:system-ui, sans-serif; background:#eef8ee; }
+  #info { position:fixed; top:12px; left:50%; transform:translateX(-50%); background:#ffffffdd; padding:8px 14px; border-radius:12px; font-size:14px; text-align:center; max-width:92vw; z-index:5; }
+  #hud { position:fixed; top:12px; left:12px; background:#ffffffdd; border-radius:12px; padding:9px 10px; font-size:14px; line-height:1.45; z-index:5; min-width:122px; box-shadow:0 3px 12px #0001; }
+  #modeBox { position:fixed; top:132px; left:12px; background:#ffffffdd; border-radius:12px; padding:7px 8px; z-index:5; font-size:12px; width:74px; box-shadow:0 3px 12px #0001; }
+  #modeBox .modeTitle { font-weight:700; margin:0 0 5px 0; text-align:center; font-size:12px; }
+  #modeBox button { display:block; width:100%; margin:4px 0; padding:6px 2px; border-radius:8px; border:1px solid #777; background:#f7f7f7; font-size:12px; line-height:1.05; }
+  #modeBox button.on { background:#dff3ff; border-color:#178ad6; font-weight:700; }
+  #resetBtn { border-color:#b77 !important; background:#fff7f7 !important; font-weight:700; }
+  #setBtn { border-color:#3b8b3b !important; background:#eaffea !important; font-weight:700; }
+  #setBtn.on { background:#bff5bf !important; border-color:#118811 !important; }
+  #calibBox { display:none; margin-top:5px; border-top:1px solid #ddd; padding-top:5px; }
+  #calibBox button { background:#fff !important; }
+  #calibBox button.on { background:#ffe7b7 !important; border-color:#c77700 !important; }
+  #controlBar { position:fixed; bottom:26px; left:50%; transform:translateX(-50%); display:flex; flex-direction:row; align-items:center; justify-content:center; gap:8px; z-index:9; }
+  #btn, #startTaskBtn, #timerTaskBtn { position:static; width:auto; min-width:0; height:30px; border-radius:8px; border:1px solid #777; background:#f5f5f5; font-size:12px; font-weight:700; line-height:1.05; padding:4px 10px; white-space:nowrap; overflow:visible; text-overflow:clip; box-sizing:border-box; }
+  #btn:active, #startTaskBtn:active, #timerTaskBtn:active { background:#eaffea; }
+  #startTaskBtn, #timerTaskBtn { background:#fff7df; }
+  #timerTaskBtn.running { background:#ffe7e7; border-color:#b77; }
+  #startTaskBtn.done { background:#e7ffe7; border-color:#7b7; }
+  #btn span { display:none; }
+  #panel { position:fixed; top:68px; right:14px; width:350px; max-height:82vh; overflow:auto; background:#ffffffee; border:1px solid #bbb; border-radius:12px; padding:12px; font-size:13px; box-shadow:0 6px 18px #0002; z-index:8; }
+  #panel h3 { margin:0 0 8px; font-size:15px; }
+  #panel h4 { margin:12px 0 4px; font-size:13px; border-top:1px solid #ddd; padding-top:8px; }
+  #panel label { display:grid; grid-template-columns:86px 1fr 58px; gap:8px; align-items:center; margin:7px 0; }
+  #panel input[type=range] { width:100%; }
+  .rangeWrap { position:relative; display:block; width:100%; }
+  .initialDot { position:absolute; top:50%; width:8px; height:8px; border-radius:50%; background:#e60000; transform:translate(-50%,-50%); pointer-events:none; box-shadow:0 0 0 1px #fff; }
+  #panel button { margin:4px 3px 0 0; padding:6px 8px; border-radius:8px; border:1px solid #777; background:#f7f7f7; }
+  #panelToggle { width:100%; margin:0 0 8px 0 !important; font-weight:700; }
+  #panel.collapsed { top:76px; right:12px; width:44px; height:44px; max-height:44px; overflow:hidden; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  #panel.collapsed h3, #panel.collapsed #panelBody { display:none; }
+  #panel.collapsed #panelToggle { display:block; width:44px; height:44px; border:0; border-radius:50%; margin:0 !important; padding:0; background:#ffffffee; font-size:15px; }
+  #coords { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f3f3f3; border-radius:8px; padding:6px; margin-top:8px; word-break:break-all; white-space:pre-wrap; font-size:11px; }
+  #end { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; background:#ffffffaa; z-index:10; font-weight:800; text-align:center; }
+  #end .big { font-size:86px; line-height:1; }
+  #end .mid { font-size:42px; margin-top:8px; }
+  #end button { margin-top:18px; font-size:20px; padding:10px 18px; border-radius:12px; border:2px solid #333; background:white; }
+  #warn { position:fixed; left:12px; bottom:12px; background:#fff3cd; border:1px solid #ffcc66; padding:8px 10px; border-radius:8px; font-size:12px; max-width:420px; display:none; z-index:5; }
+  @media (max-width: 760px) {
+    #info { top:8px; font-size:12px; padding:6px 10px; max-width:76vw; }
+    #hud { top:58px; left:8px; font-size:12px; padding:7px 8px; min-width:104px; }
+    #modeBox { top:170px; left:8px; width:58px; padding:6px; }
+    #modeBox .modeTitle { font-size:11px; }
+    #modeBox button { font-size:11px; padding:5px 1px; }
+    #controlBar { bottom:14px; gap:6px; }
+    #btn, #startTaskBtn, #timerTaskBtn { height:28px; font-size:12px; padding:4px 9px; }
+    #panel { top:54px; right:8px; width:min(92vw,350px); max-height:82vh; }
+    #panel.collapsed { top:58px; right:8px; width:42px; height:42px; max-height:42px; }
+    #panel.collapsed #panelToggle { width:42px; height:42px; }
+  }
+
+  #resultModal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#0006; z-index:30; padding:18px; }
+  #resultCard { width:min(92vw,560px); background:white; border-radius:16px; padding:20px; box-shadow:0 12px 36px #0005; text-align:center; }
+  #resultMessage { font-size:17px; line-height:1.65; white-space:pre-line; }
+  #resultActions { margin-top:16px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+  #resultActions button { border:1px solid #555; background:#f7f7f7; border-radius:10px; padding:9px 14px; font-size:14px; font-weight:700; }
+</style>
+<script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="info">SHAPr21 Tray Support v9：0SET位置から開始 → STARTでタイマーボタン前へ移動 → 「ボタン」で計測開始 → GLIFT高さを保持 → ObjSへ水平移動 → HOLDへ垂直下降して待機 → Lでトレー端を把持して支える → 手前へ搬送・設置 → 「ボタン」で計測停止。</div>
+<div id="hud">TIME: <span id="time">0.0</span><br>PHASE: <span id="phase">READY</span><br>MODE: <span id="modeName">軽量</span><br>義手: <span id="armName">前腕</span><br><span id="setStatus" style="color:#999;">SET OFF</span></div>
+<div id="modeBox">
+  <div class="modeTitle">Tray Support</div>
+  <button id="modeLight" type="button" class="on">軽量</button>
+  <button id="modeHeavy" type="button">重量</button>
+  <div class="modeTitle" style="margin-top:8px;">義手</div>
+  <button id="armForearm" type="button" class="on">前腕</button>
+  <button id="armUpper" type="button">上腕</button>
+  <button id="armShoulder" type="button">肩</button>
+  <button id="resetBtn" type="button">RESET</button>
+  <button id="setBtn" type="button">SET</button>
+  <div id="calibBox">
+    <button id="calibZero" type="button">0SET</button>
+    <button id="calibGlift" type="button">GLIFT</button>
+    <button id="calibStart" type="button">START</button>
+    <button id="calibObjs" type="button">ObjS</button>
+    <button id="calibHold" type="button">HOLD</button>
+    <button id="calibPlace" type="button">PLACE</button>
+    <button id="calibTimer" type="button">TIMER</button>
+  </div>
+</div>
+<div id="controlBar"><button id="btn">L<span>GRIP</span></button><button id="startTaskBtn" type="button">START</button><button id="timerTaskBtn" type="button">ボタン</button></div>
+<div id="warn"></div>
+<div id="end"><div class="big" id="finalTime">0.0s</div><div class="mid">END</div><div id="endNote" style="max-width:620px;margin-top:14px;font-size:16px;line-height:1.6;"></div><button id="restartBtn">もう一度</button></div>
+<div id="resultModal"><div id="resultCard"><div id="resultMessage"></div><div id="resultActions"><button id="retryTrialBtn" type="button">またトライ</button><button id="finishTrialBtn" type="button">終了</button></div></div></div>
+
+<div id="panel" class="collapsed">
+  <h3>SHAP調整パネル</h3>
+  <button id="panelToggle" type="button">調</button>
+  <div id="panelBody">
+    <h4>0SET：真の初期位置</h4>
+    <label>0SET-X <input id="zeroX" type="range" min="-2.00" max="2.00" step="0.01"><span id="zeroXv"></span></label>
+    <label>0SET-Y <input id="zeroY" type="range" min="-1.00" max="2.00" step="0.01"><span id="zeroYv"></span></label>
+    <label>0SET-Z <input id="zeroZ" type="range" min="-2.00" max="2.00" step="0.01"><span id="zeroZv"></span></label>
+    <label>0回転X <input id="zeroRX" type="range" min="-3.14" max="3.14" step="0.01"><span id="zeroRXv"></span></label>
+    <label>0回転Y <input id="zeroRY" type="range" min="-3.14" max="3.14" step="0.01"><span id="zeroRYv"></span></label>
+    <label>0回転Z <input id="zeroRZ" type="range" min="-3.14" max="3.14" step="0.01"><span id="zeroRZv"></span></label>
+
+    <h4>トレー・把持</h4>
+    <label>トレー回転X <input id="prx" type="range" min="-3.14" max="3.14" step="0.01"><span id="prxv"></span></label>
+    <label>トレー回転Y <input id="pry" type="range" min="-3.14" max="3.14" step="0.01"><span id="pryv"></span></label>
+    <label>トレー回転Z <input id="prz" type="range" min="-3.14" max="3.14" step="0.01"><span id="przv"></span></label>
+    <label>G-X <input id="gx" type="range" min="-1.50" max="1.50" step="0.01"><span id="gxv"></span></label>
+    <label>G-Y <input id="gy" type="range" min="-1.50" max="1.50" step="0.01"><span id="gyv"></span></label>
+    <label>G-Z <input id="gz" type="range" min="-1.50" max="1.50" step="0.01"><span id="gzv"></span></label>
+    <label>本体X <input id="baseX" type="range" min="-1.00" max="1.00" step="0.005"><span id="baseXv"></span></label>
+    <label>本体Y <input id="baseY" type="range" min="-1.00" max="1.00" step="0.005"><span id="baseYv"></span></label>
+    <label>本体Z <input id="baseZ" type="range" min="-1.00" max="1.00" step="0.005"><span id="baseZv"></span></label>
+    <label>トレー相対X <input id="sgx" type="range" min="-0.50" max="0.50" step="0.005"><span id="sgxv"></span></label>
+    <label>トレー相対Z <input id="sgz" type="range" min="-0.50" max="0.50" step="0.005"><span id="sgzv"></span></label>
+    <label>トレーX補正 <input id="sphereX" type="range" min="-0.50" max="0.50" step="0.005"><span id="sphereXv"></span></label>
+    <label>トレーY補正 <input id="sphereY" type="range" min="-0.20" max="0.50" step="0.005"><span id="sphereYv"></span></label>
+    <label>トレーZ補正 <input id="sphereZ" type="range" min="-0.50" max="0.50" step="0.005"><span id="sphereZv"></span></label>
+
+    <h4>グライファー角度</h4>
+    <label>回転X <input id="rx" type="range" min="-3.14" max="3.14" step="0.01"><span id="rxv"></span></label>
+    <label>回転Y <input id="ry" type="range" min="-3.14" max="3.14" step="0.01"><span id="ryv"></span></label>
+    <label>回転Z <input id="rz" type="range" min="-3.14" max="3.14" step="0.01"><span id="rzv"></span></label>
+
+    <h4>Jaw角度</h4>
+    <label>開 <input id="openA" type="range" min="-0.20" max="1.00" step="0.01"><span id="openAv"></span></label>
+    <label>閉 <input id="closedA" type="range" min="-0.30" max="0.80" step="0.01"><span id="closedAv"></span></label>
+
+    <h4>速度プロファイル</h4>
+    <label>上腕Lift <input id="upperLift" type="range" min="0.5" max="8.0" step="0.1"><span id="upperLiftv"></span></label>
+    <label>上腕Place <input id="upperPlace" type="range" min="0.5" max="8.0" step="0.1"><span id="upperPlacev"></span></label>
+    <label>肩Lift <input id="shoulderLift" type="range" min="0.5" max="10.0" step="0.1"><span id="shoulderLiftv"></span></label>
+    <label>肩Place <input id="shoulderPlace" type="range" min="0.5" max="10.0" step="0.1"><span id="shoulderPlacev"></span></label>
+
+    <h4>失敗状態</h4>
+    <label>トレー傾きX <input id="failTiltX" type="range" min="-0.80" max="0.80" step="0.01"><span id="failTiltXv"></span></label>
+    <label>トレー傾きZ <input id="failTiltZ" type="range" min="-0.80" max="0.80" step="0.01"><span id="failTiltZv"></span></label>
+    <label>物体停止X <input id="failObjX" type="range" min="-0.28" max="0.28" step="0.005"><span id="failObjXv"></span></label>
+    <label>物体停止Z <input id="failObjZ" type="range" min="-0.18" max="0.18" step="0.005"><span id="failObjZv"></span></label>
+
+    <h4>場所</h4>
+    <label>後方X <input id="rearX" type="range" min="-1.20" max="1.20" step="0.01"><span id="rearXv"></span></label>
+    <label>後方Z <input id="rearZ" type="range" min="-1.20" max="1.20" step="0.01"><span id="rearZv"></span></label>
+    <label>前方X <input id="frontX" type="range" min="-1.20" max="1.20" step="0.01"><span id="frontXv"></span></label>
+    <label>前方Z <input id="frontZ" type="range" min="-1.20" max="1.20" step="0.01"><span id="frontZv"></span></label>
+    <label>タイマX <input id="timerX" type="range" min="-1.20" max="1.20" step="0.01"><span id="timerXv"></span></label>
+    <label>タイマZ <input id="timerZ" type="range" min="-1.20" max="1.20" step="0.01"><span id="timerZv"></span></label>
+
+    <button id="saveAll" type="button">保存</button>
+    <button id="resetAll" type="button">初期値</button>
+    <button id="copyAll" type="button">設定コピー</button>
+    <div id="coords"></div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const STORAGE_KEY = 'greifer_shapr21_tray_support_v9_contact_hold_fixed_config';
+const FLOOR_Y = -0.35;
+const DEFAULT_CONFIG = {
+  trayWidth: 0.58,
+  trayDepth: 0.38,
+  trayThickness: 0.025,
+  rimHeight: 0.07,
+  rimThickness: 0.02,
+  prismRot: [0.00, 0.00, 0.00],
+  graspLocal: [0.38, 0.37, -0.10],
+  baseOffset: [-0.015, -0.13, 0.045],
+  sphereGripOffset: [0.30, 0.12],
+  spherePosOffset: [-0.01, 0.07, -0.025],
+  liftHeight: 0.06,
+  transitClearance: 0.05,
+  gripperRot: [-0.52, 1.39, -0.34],
+  openAngle: 0.44,
+  closedAngle: 0.02,
+  zeroSetBase: [0.94, -0.28, 0.63],
+  zeroSetRot: [0.00, 0.00, 0.00],
+  upperLiftMult: 3.0,
+  upperPlaceMult: 3.0,
+  shoulderLiftMult: 6.0,
+  shoulderPlaceMult: 6.0,
+  traySimulation: {
+    forearm: { shakeAmp: 0.010, shakeFreq: 1.6, gripDelay: 1500, placeDelay: 1100, wristSlip: 0.08, rollProbability: 0.00, accidentalRollProbability: 0.50 },
+    upper: { shakeAmp: 0.024, shakeFreq: 1.25, gripDelay: 2300, placeDelay: 1900, rollProbabilityGrip: 0.70, rollProbabilityPlace: 0.85, guaranteedSuccessTrial: 6, accidentalRollProbability: 0.75 },
+    shoulder: { shakeAmp: 0.038, shakeFreq: 1.0, gripDelay: 3400, placeDelay: 3000, rollProbability: 0.96, successProbability: 0.02, accidentalRollProbability: 0.95 }
+  },
+  failurePose: {
+    trayTilt: [0.24, 0.00, -0.30],
+    payloadStop: [0.20, 0.00, 0.11]
+  },
+  rearSlot: [0.00, -0.38],
+  frontCup: [0.00, 0.10],
+  timerButton: [0.52, 0.08]
+};
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function loadConfig(){ try { const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); return s ? {...clone(DEFAULT_CONFIG), ...s} : clone(DEFAULT_CONFIG); } catch { return clone(DEFAULT_CONFIG); } }
+let config = loadConfig();
+let mode = 'light';
+let currentArm = 'forearm';
+
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xeef8ee);
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.01, 100); camera.position.set(0,1.15,3.0);
+const renderer = new THREE.WebGLRenderer({antialias:true}); renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(devicePixelRatio); document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0,0.18,0); controls.enableDamping=true;
+scene.add(new THREE.AmbientLight(0xffffff,1.8)); const light=new THREE.DirectionalLight(0xffffff,2.5); light.position.set(3,5,4); scene.add(light);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(7,5),new THREE.MeshStandardMaterial({color:0xf2f2f2})); ground.rotation.x=-Math.PI/2; ground.position.y=FLOOR_Y; scene.add(ground);
+
+const root = new THREE.Group(); root.rotation.x = -Math.PI/2; scene.add(root);
+const jawPivot = new THREE.Group(); root.add(jawPivot);
+const loader = new GLTFLoader();
+let body=null, jaw=null, normalized=false;
+let state='ready', moving=false, angle=config.openAngle, targetAngle=config.openAngle;
+let sphere=null, board=null, rearSlotObj=null, frontCupObj=null, wallObj=null, timerBase=null, timerButtonMesh=null, trayPayload=null;
+let startTime=0, timerRunning=false, finalSeconds=0;
+let calibrationMode=false, calibrationState='START';
+let trialCount=0;
+let trialPhase='none';
+let accumulatedActiveMs=0, attemptStartMs=0, attemptActive=false;
+let motionToken=0;
+
+function setWarn(msg){ const w=document.getElementById('warn'); w.textContent=msg; w.style.display='block'; }
+function setPhase(p){ document.getElementById('phase').textContent = p; }
+function setMode(newMode){ mode=newMode; document.getElementById('modeLight').classList.toggle('on', mode==='light'); document.getElementById('modeHeavy').classList.toggle('on', mode==='heavy'); document.getElementById('modeName').textContent = mode==='light' ? '軽量' : '重量'; makeSphere(); resetTask(); }
+function setArm(newArm){
+  currentArm = newArm;
+  document.getElementById('armForearm').classList.toggle('on', currentArm==='forearm');
+  document.getElementById('armUpper').classList.toggle('on', currentArm==='upper');
+  document.getElementById('armShoulder').classList.toggle('on', currentArm==='shoulder');
+  document.getElementById('armName').textContent = currentArm==='forearm' ? '前腕' : (currentArm==='upper' ? '上腕' : '肩');
+}
+function liftMult(){ return currentArm==='upper' ? config.upperLiftMult : (currentArm==='shoulder' ? config.shoulderLiftMult : 1.0); }
+function placeMult(){ return currentArm==='upper' ? config.upperPlaceMult : (currentArm==='shoulder' ? config.shoulderPlaceMult : 1.0); }
+document.getElementById('modeLight').onclick=()=>setMode('light'); document.getElementById('modeHeavy').onclick=()=>setMode('heavy');
+document.getElementById('armForearm').onclick=()=>setArm('forearm');
+document.getElementById('armUpper').onclick=()=>setArm('upper');
+document.getElementById('armShoulder').onclick=()=>setArm('shoulder');
+document.getElementById('resetBtn').onclick=()=>resetTask();
+document.getElementById('setBtn').onclick=()=>toggleCalibration();
+document.getElementById('calibZero').onclick=()=>setCalibrationState('ZERO');
+document.getElementById('calibStart').onclick=()=>setCalibrationState('START');
+document.getElementById('calibGlift').onclick=()=>setCalibrationState('GLIFT');
+document.getElementById('calibObjs').onclick=()=>setCalibrationState('OBJS');
+document.getElementById('calibHold').onclick=()=>setCalibrationState('HOLD');
+document.getElementById('calibPlace').onclick=()=>setCalibrationState('PLACE');
+document.getElementById('calibTimer').onclick=()=>setCalibrationState('TIMER');
+
+function makeBoard(){
+  if(board) scene.remove(board);
+  board = new THREE.Group(); scene.add(board);
+  const matBlue = new THREE.MeshStandardMaterial({color:0x1f86d1, roughness:.45});
+  const matDark = new THREE.MeshStandardMaterial({color:0x333333, roughness:.5});
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.45,0.06,0.90), matBlue);
+  base.position.set(0,FLOOR_Y+0.03,-0.12); board.add(base);
+  const railBack = new THREE.Mesh(new THREE.BoxGeometry(0.70,0.06,0.10), matDark);
+  railBack.position.set(config.rearSlot[0], FLOOR_Y+0.09, config.rearSlot[1]-0.18); board.add(railBack);
+
+  // 出発位置：トレー外形と同じ薄い輪郭
+  const outlineMat = new THREE.MeshStandardMaterial({color:0x333333, roughness:.5});
+  const ow=config.trayWidth*1.06, od=config.trayDepth*1.06, t=0.012;
+  const y=FLOOR_Y+0.085;
+  const addOutline=(cx,cz,mat)=>{
+    const g=new THREE.Group();
+    const a=new THREE.Mesh(new THREE.BoxGeometry(ow,t,0.014),mat); a.position.set(cx,y,cz-od/2); g.add(a);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(ow,t,0.014),mat); b.position.set(cx,y,cz+od/2); g.add(b);
+    const c=new THREE.Mesh(new THREE.BoxGeometry(0.014,t,od),mat); c.position.set(cx-ow/2,y,cz); g.add(c);
+    const d=new THREE.Mesh(new THREE.BoxGeometry(0.014,t,od),mat); d.position.set(cx+ow/2,y,cz); g.add(d);
+    board.add(g); return g;
+  };
+  rearSlotObj=addOutline(config.rearSlot[0],config.rearSlot[1],outlineMat);
+
+  // 目的地：白い沈んだ窪み＋細い輪郭
+  const recess = new THREE.Mesh(
+    new THREE.BoxGeometry(config.trayWidth*1.03,0.012,config.trayDepth*1.03),
+    new THREE.MeshStandardMaterial({color:0xf7f7f7,roughness:.7})
+  );
+  recess.position.set(config.frontCup[0],FLOOR_Y+0.052,config.frontCup[1]); board.add(recess);
+  frontCupObj=addOutline(config.frontCup[0],config.frontCup[1],new THREE.MeshStandardMaterial({color:0xffffff,roughness:.6}));
+
+  timerBase = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.045,0.18), new THREE.MeshStandardMaterial({color:0x555555, roughness:.35}));
+  timerBase.position.set(config.timerButton[0], FLOOR_Y+0.052, config.timerButton[1]); board.add(timerBase);
+  timerButtonMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.025,32), new THREE.MeshStandardMaterial({color:0xff3333, roughness:.3}));
+  timerButtonMesh.position.set(config.timerButton[0], FLOOR_Y+0.095, config.timerButton[1]); board.add(timerButtonMesh);
+}
+
+function makeSphere(){
+  if(sphere){ if(sphere.parent) sphere.parent.remove(sphere); sphere=null; }
+  const group = new THREE.Group();
+  const color = mode==='light' ? 0xe8e1cf : 0xb8b8b8;
+  const matObj = new THREE.MeshStandardMaterial({color, roughness:.45, metalness: mode==='heavy' ? .18 : 0});
+  const w=Math.max(0.10,config.trayWidth), d=Math.max(0.10,config.trayDepth);
+  const bt=Math.max(0.005,config.trayThickness), rh=Math.max(0.005,config.rimHeight), rt=Math.max(0.005,config.rimThickness);
+
+  const baseTray = new THREE.Mesh(new THREE.BoxGeometry(w,bt,d),matObj);
+  baseTray.position.y=bt/2;
+  group.add(baseTray);
+
+  // 四周が立ち上がったトレー。端の高さはrimHeightバーで変更可能。
+  const frontRim=new THREE.Mesh(new THREE.BoxGeometry(w,rh,rt),matObj);
+  frontRim.position.set(0,bt+rh/2,d/2-rt/2);
+  const backRim=frontRim.clone(); backRim.position.z=-d/2+rt/2;
+  const leftRim=new THREE.Mesh(new THREE.BoxGeometry(rt,rh,d-2*rt),matObj);
+  leftRim.position.set(-w/2+rt/2,bt+rh/2,0);
+  const rightRim=leftRim.clone(); rightRim.position.x=w/2-rt/2;
+  group.add(frontRim,backRim,leftRim,rightRim);
+
+  // 重量モードではSHAP4由来のコップ状オブジェクトをトレー上に載せる。
+  trayPayload=null;
+  if(mode==='heavy'){
+    trayPayload=new THREE.Group();
+    const payloadMat=new THREE.MeshStandardMaterial({color:0xd7d2c8,roughness:.42,metalness:.12});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.18,36),payloadMat);
+    body.position.y=bt+0.09;
+    trayPayload.add(body);
+    const handle=new THREE.Mesh(new THREE.TorusGeometry(0.052,0.010,12,32,Math.PI*1.5),payloadMat);
+    handle.rotation.y=Math.PI/2; handle.position.set(0.085,bt+0.09,0);
+    trayPayload.add(handle);
+    trayPayload.position.set(0.04,0,0);
+    group.add(trayPayload);
+  }
+
+  group.rotation.set(config.prismRot[0],config.prismRot[1],config.prismRot[2]);
+  sphere=group;
+  scene.add(sphere);
+}
+
+async function loadGreifer(){
+  try{
+    const b = await loader.loadAsync('Body.glb'); body=b.scene; root.add(body);
+    const j = await loader.loadAsync('LeftJaw.glb'); jaw=j.scene; jawPivot.add(jaw);
+    root.traverse(o=>{ if(o.isMesh){ o.material=new THREE.MeshStandardMaterial({color:0x101010,roughness:.35,metalness:.4}); }});
+    normalizeWholeGreifer();
+    makeBoard(); makeSphere(); resetTask();
+  } catch(e){ console.error(e); setWarn('Body.glb と LeftJaw.glb を、このHTMLと同じフォルダに置いてください。'); }
+}
+function normalizeWholeGreifer(){ if(normalized) return; root.position.set(0,0,0); root.scale.set(1,1,1); const box=new THREE.Box3().setFromObject(root); const size=box.getSize(new THREE.Vector3()); const max=Math.max(size.x,size.y,size.z); if(max>0){ root.scale.setScalar(0.75/max); normalized=true; }}
+function applyGripperRot(){ root.rotation.set(-Math.PI/2 + config.gripperRot[0], config.gripperRot[1], config.gripperRot[2]); }
+function applyZeroGripperRot(){ root.rotation.set(-Math.PI/2 + config.zeroSetRot[0], config.zeroSetRot[1], config.zeroSetRot[2]); }
+function putRootAtZeroSet(){ applyZeroGripperRot(); root.position.set(config.zeroSetBase[0], config.zeroSetBase[1], config.zeroSetBase[2]); }
+function putRootAtReadyStart(){ applyGripperRot(); root.position.set(-0.55,0.25,0.05); moveRootToPutGraspAt(sphereGraspTarget(sphere.position)); }
+function getGraspWorld(){ const p=new THREE.Vector3(...config.graspLocal); root.localToWorld(p); return p; }
+function moveRootToPutGraspAt(worldPos){ const current=getGraspWorld(); root.position.add(worldPos.clone().sub(current)); root.position.add(new THREE.Vector3(...config.baseOffset)); }
+function rootTargetForGraspAt(worldPos){ const current=getGraspWorld(); return root.position.clone().add(worldPos.clone().sub(current)).add(new THREE.Vector3(...config.baseOffset)); }
+function sphereOffsetWorld(){ return new THREE.Vector3(config.spherePosOffset[0], config.spherePosOffset[1], config.spherePosOffset[2]); }
+function sphereStartCenter(){ return new THREE.Vector3(config.rearSlot[0], FLOOR_Y + config.trayThickness/2, config.rearSlot[1]).add(sphereOffsetWorld()); }
+function sphereFrontCenter(){ return new THREE.Vector3(config.frontCup[0], FLOOR_Y + config.trayThickness/2, config.frontCup[1]).add(sphereOffsetWorld()); }
+function sphereLiftCenter(){ const c=sphereStartCenter(); return new THREE.Vector3(c.x, c.y + config.liftHeight, c.z); }
+function sphereAboveFrontCenter(){ const f=sphereFrontCenter(); return new THREE.Vector3(f.x, f.y + config.liftHeight, f.z); }
+function sphereGripOffsetWorld(){ return new THREE.Vector3(config.sphereGripOffset[0], 0, config.sphereGripOffset[1]); }
+function sphereGraspTarget(center){ return center.clone().add(sphereGripOffsetWorld()); }
+function timerPressPoint(){ return new THREE.Vector3(config.timerButton[0], FLOOR_Y + 0.13, config.timerButton[1]); }
+
+function taskRotationEuler(){
+  return new THREE.Euler(-Math.PI/2 + config.gripperRot[0], config.gripperRot[1], config.gripperRot[2], root.rotation.order);
+}
+function calculateRootPoseForGrasp(worldPos, rotationEuler=taskRotationEuler()){
+  const savedPos=root.position.clone();
+  const savedRot=root.rotation.clone();
+  root.position.set(0,0,0);
+  root.rotation.copy(rotationEuler);
+  root.updateMatrixWorld(true);
+  const grasp=getGraspWorld();
+  const result=worldPos.clone().sub(grasp).add(new THREE.Vector3(...config.baseOffset));
+  root.position.copy(savedPos);
+  root.rotation.copy(savedRot);
+  root.updateMatrixWorld(true);
+  return result;
+}
+function holdRootTarget(){
+  // HOLD is the real contact pose: ObjS is directly above this X/Z position,
+  // then the gripper descends vertically to this exact root pose.
+  return calculateRootPoseForGrasp(sphereGraspTarget(sphereStartCenter()), taskRotationEuler());
+}
+function expectedContactPoint(){
+  // calculateRootPoseForGrasp intentionally includes baseOffset, so the expected
+  // grasp point also includes the same offset when checking physical contact.
+  return sphereGraspTarget(sphereStartCenter()).add(new THREE.Vector3(...config.baseOffset));
+}
+function contactError(){
+  root.updateMatrixWorld(true);
+  return getGraspWorld().distanceTo(expectedContactPoint());
+}
+function canAttachTray(){
+  const positionError = root.position.distanceTo(holdRootTarget());
+  const graspError = contactError();
+  return positionError <= 0.025 && graspError <= 0.035;
+}
+function timerContactTarget(rotationEuler=null){
+  const rot=rotationEuler || root.rotation.clone();
+  return calculateRootPoseForGrasp(timerPressPoint(), rot);
+}
+function calibratedGliftY(){
+  const contact=timerContactTarget(taskRotationEuler());
+  return contact.y + config.transitClearance;
+}
+function gliftWorldPosition(){
+  // タイマーボタン接触位置から、設定した移動クリアランス分だけ真上へ上げた位置。
+  return root.position.clone().add(new THREE.Vector3(0, config.transitClearance, 0));
+}
+function objSRootTarget(){
+  // トレー把持位置の真上。GLIFT と同じ高さを維持したまま、X/Zだけ合わせる。
+  const target=rootTargetForGraspAt(sphereGraspTarget(sphereStartCenter()));
+  target.y = gliftWorldPosition().y;
+  return target;
+}
+function clearanceY(){ return Math.max(root.position.y, FLOOR_Y + 0.05 + config.transitClearance); }
+function pointAtClearance(p){ return new THREE.Vector3(p.x, clearanceY(), p.z); }
+function beginAttemptClock(){ attemptStartMs=performance.now(); attemptActive=true; timerRunning=true; startTime=attemptStartMs; }
+function stopAttemptClock(){ if(attemptActive){ accumulatedActiveMs += performance.now()-attemptStartMs; attemptActive=false; } timerRunning=false; return accumulatedActiveMs; }
+function activeElapsedMs(){ return accumulatedActiveMs + (attemptActive ? performance.now()-attemptStartMs : 0); }
+function cancelMotions(){ motionToken += 1; moving=false; }
+function setTimerButtonLabel(label){ const b=document.getElementById('timerTaskBtn'); if(b) b.textContent=label; }
+function setTimerButtonRunning(on){ const b=document.getElementById('timerTaskBtn'); if(b) b.classList.toggle('running', !!on); }
+function setStartButtonDone(on){ const b=document.getElementById('startTaskBtn'); if(b) b.classList.toggle('done', !!on); }
+function depressTimerButton(){ if(timerButtonMesh) timerButtonMesh.position.y -= 0.015; }
+function releaseTimerButton(){ if(timerButtonMesh) timerButtonMesh.position.y += 0.015; }
+function resetTask(){
+  state='zero_start'; moving=false; timerRunning=false; startTime=0; finalSeconds=0; calibrationMode=false; trialCount=0; trialPhase='none'; accumulatedActiveMs=0; attemptStartMs=0; attemptActive=false; cancelMotions(); document.getElementById('resultModal').style.display='none'; document.getElementById('endNote').textContent=''; updateCalibrationUI(); setPhase('0SET'); document.getElementById('end').style.display='none'; document.getElementById('time').textContent='0.0'; setTimerButtonLabel('ボタン'); setTimerButtonRunning(false); setStartButtonDone(false);
+  makeBoard(); makeSphere();
+  jawPivot.rotation.z=config.openAngle; angle=config.openAngle; targetAngle=config.openAngle;
+  sphere.position.copy(sphereStartCenter());
+  putRootAtZeroSet();
+}
+function setJaw(a){ targetAngle=a; }
+function updateJaw(){ angle += (targetAngle-angle)*0.08; jawPivot.rotation.z=angle; }
+function moveRootSlowly(to, ms, done=null){
+  moving=true; const from=root.position.clone(); const start=performance.now(); const token=++motionToken;
+  function step(){ if(token!==motionToken) return; const t=Math.min(1,(performance.now()-start)/ms); const u=t*t*(3-2*t); root.position.lerpVectors(from,to,u); if(t<1) requestAnimationFrame(step); else { root.position.copy(to); moving=false; done?.(); }} step();
+}
+function rotateRootToTaskPose(ms=650, done=null){
+  moving=true;
+  const from=root.rotation.clone();
+  const to=new THREE.Euler(-Math.PI/2 + config.gripperRot[0], config.gripperRot[1], config.gripperRot[2], root.rotation.order);
+  const start=performance.now();
+  const token=++motionToken;
+  function step(){
+    if(token!==motionToken) return;
+    const t=Math.min(1,(performance.now()-start)/ms);
+    const u=t*t*(3-2*t);
+    root.rotation.set(
+      from.x+(to.x-from.x)*u,
+      from.y+(to.y-from.y)*u,
+      from.z+(to.z-from.z)*u
+    );
+    if(t<1) requestAnimationFrame(step);
+    else { root.rotation.copy(to); moving=false; done?.(); }
+  }
+  step();
+}
+function moveRootRoute(points, durations, done=null){
+  let i=0; function next(){ if(i>=points.length){ done?.(); return; } moveRootSlowly(points[i],durations[i],()=>{ i++; next(); }); } next();
+}
+function routeViaClearance(target, done=null, durations=[450,850,450]){
+  const y=Math.max(root.position.y,target.y,FLOOR_Y+config.transitClearance);
+  const up=new THREE.Vector3(root.position.x,y,root.position.z);
+  const across=new THREE.Vector3(target.x,y,target.z);
+  moveRootRoute([up,across,target],durations,done);
+}
+function routeFromTargetUpThenTo(target, done=null, durations=[450,850,450]){ routeViaClearance(target,done,durations); }
+
+// 肩義手の把持・設置では、クリック不応期を「ゆっくりした小幅の探索運動」として見せる。
+// 揺れ幅は小さく、設置時は動作の前半だけ短時間揺れ、最後は正確な目標座標へ収束する。
+function moveRootWithGentleShake(to, ms, shakeMs, done=null, amplitude=0.0045, frequency=2.0){
+  moving=true;
+  const from=root.position.clone();
+  const start=performance.now();
+  const token=++motionToken;
+  function step(){
+    if(token!==motionToken) return;
+    const elapsed=performance.now()-start;
+    const t=Math.min(1,elapsed/ms);
+    const u=t*t*(3-2*t);
+    const base=new THREE.Vector3().lerpVectors(from,to,u);
+    const shakeT=Math.min(1, elapsed/Math.max(1,shakeMs));
+    const active=elapsed < shakeMs ? Math.sin(Math.PI*shakeT) : 0;
+    base.x += Math.sin(elapsed/1000*Math.PI*2*frequency)*amplitude*active;
+    base.z += Math.sin(elapsed/1000*Math.PI*2*frequency*0.72)*amplitude*0.35*active;
+    root.position.copy(base);
+    if(t<1) requestAnimationFrame(step);
+    else { root.position.copy(to); moving=false; done?.(); }
+  }
+  step();
+}
+function shakeRootInPlace(ms, done=null, amplitude=0.0045, frequency=2.0){
+  const target=root.position.clone();
+  moveRootWithGentleShake(target, ms, ms, done, amplitude, frequency);
+}
+
+function profile(){ return config.traySimulation[currentArm==='upper'?'upper':(currentArm==='shoulder'?'shoulder':'forearm')]; }
+function animateFailurePose(done=null){
+  if(!sphere){ done?.(); return; }
+  const trayStartRot=sphere.rotation.clone();
+  const payloadStart=trayPayload?trayPayload.position.clone():null;
+  const payloadRot=trayPayload?trayPayload.rotation.clone():null;
+  const start=performance.now(), ms=900;
+  const tilt=config.failurePose.trayTilt;
+  const stop=config.failurePose.payloadStop;
+  function step(){
+    const t=Math.min(1,(performance.now()-start)/ms), u=t*t*(3-2*t);
+    sphere.rotation.set(trayStartRot.x+tilt[0]*u,trayStartRot.y+tilt[1]*u,trayStartRot.z+tilt[2]*u);
+    if(trayPayload){
+      trayPayload.position.set(payloadStart.x+(stop[0]-payloadStart.x)*u,payloadStart.y+(stop[1]-payloadStart.y)*u,payloadStart.z+(stop[2]-payloadStart.z)*u);
+      trayPayload.rotation.z=payloadRot.z+1.35*u;
+    }
+    if(t<1) requestAnimationFrame(step); else done?.();
+  }
+  step();
+}
+function showResultMessage(message, allowRetry=true){
+  document.getElementById('resultMessage').textContent=message;
+  document.getElementById('retryTrialBtn').style.display=allowRetry?'inline-block':'none';
+  document.getElementById('resultModal').style.display='flex';
+}
+function prepareRetry(){
+  document.getElementById('resultModal').style.display='none';
+  cancelMotions();
+  detachSphereToScene(); makeSphere(); sphere.position.copy(sphereStartCenter());
+  setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+  attemptStartMs=0; attemptActive=false; timerRunning=false;
+  putRootAtZeroSet(); state='zero_start'; moving=false; setPhase('0SET / RETRY '+(trialCount+1));
+  document.getElementById('time').textContent='0.0'; setStartButtonDone(false); setTimerButtonRunning(false);
+}
+function failTrial(message){
+  cancelMotions();
+  stopAttemptClock();
+  state='failure_freeze'; setPhase('FAILED');
+  animateFailurePose(()=>{ setTimeout(()=>{ showResultMessage(message,true); state='trial_failed'; },1000); });
+}
+function attachSphere(){
+  // root.attach() preserves the sphere's world position.
+  // The gripper grasp point is allowed to be slightly offset from the sphere center.
+  // This lets the user tune the gripper-vs-sphere XY/Z relationship without changing the gripper angle.
+  root.attach(sphere);
+}
+function releaseSphereAtFront(){ scene.attach(sphere); sphere.position.copy(sphereFrontCenter()); }
+function updateCalibrationUI(){
+  const setBtn=document.getElementById('setBtn');
+  const box=document.getElementById('calibBox');
+  const status=document.getElementById('setStatus');
+  if(setBtn) setBtn.classList.toggle('on', calibrationMode);
+  if(box) box.style.display=calibrationMode ? 'block' : 'none';
+  if(status){ status.textContent=calibrationMode ? ('SET '+calibrationState) : 'SET OFF'; status.style.color=calibrationMode ? '#118811' : '#999'; }
+  ['ZERO','GLIFT','START','OBJS','HOLD','PLACE','TIMER'].forEach(s=>{
+    const el=document.getElementById('calib'+s[0]+s.slice(1).toLowerCase());
+    if(el) el.classList.toggle('on', calibrationMode && calibrationState===s);
+  });
+}
+function toggleCalibration(){
+  calibrationMode=!calibrationMode;
+  timerRunning=false;
+  moving=false;
+  if(calibrationMode) applyCalibrationState(calibrationState);
+  else { state='zero_start'; setPhase('0SET'); }
+  updateCalibrationUI();
+}
+function setCalibrationState(s){ calibrationState=s; calibrationMode=true; applyCalibrationState(s); updateCalibrationUI(); }
+function detachSphereToScene(){ if(sphere && sphere.parent!==scene) scene.attach(sphere); }
+function applyCalibrationState(s){
+  if(!sphere || !root) return;
+  moving=false; timerRunning=false;
+  document.getElementById('end').style.display='none';
+  if(s==='ZERO'){
+    detachSphereToScene();
+    sphere.position.copy(sphereStartCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    putRootAtZeroSet();
+    state='calib_zero'; setPhase('SET 0SET');
+  } else if(s==='GLIFT'){
+    detachSphereToScene();
+    sphere.position.copy(sphereStartCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    root.rotation.copy(taskRotationEuler());
+    const contact=timerContactTarget(taskRotationEuler());
+    root.position.copy(contact);
+    root.position.y = contact.y + config.transitClearance;
+    state='calib_glift'; setPhase('SET GLIFT');
+  } else if(s==='START'){
+    detachSphereToScene();
+    sphere.position.copy(sphereStartCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    root.position.set(-0.55,0.25,0.05);
+    moveRootToPutGraspAt(timerPressPoint());
+    state='calib_start'; setPhase('SET START');
+  } else if(s==='OBJS'){
+    detachSphereToScene();
+    sphere.position.copy(sphereStartCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    root.rotation.copy(taskRotationEuler());
+    const hold=holdRootTarget();
+    root.position.set(hold.x, calibratedGliftY(), hold.z);
+    state='calib_objs'; setPhase('SET ObjS');
+  } else if(s==='HOLD'){
+    // HOLD is a contact-check state, not an attached/carrying state.
+    // Keep the tray in the scene, place the gripper at the exact contact pose,
+    // and close only the jaw so the real positional relationship can be inspected.
+    detachSphereToScene();
+    sphere.position.copy(sphereStartCenter());
+    sphere.rotation.set(config.prismRot[0],config.prismRot[1],config.prismRot[2]);
+    root.rotation.copy(taskRotationEuler());
+    root.position.copy(holdRootTarget());
+    setJaw(config.closedAngle); angle=config.closedAngle; targetAngle=config.closedAngle;
+    state='calib_hold'; setPhase('SET HOLD / CONTACT');
+  } else if(s==='PLACE'){
+    detachSphereToScene();
+    sphere.position.copy(sphereFrontCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    putRootAtReadyStart()
+    state='calib_place'; setPhase('SET PLACE');
+  } else if(s==='TIMER'){
+    detachSphereToScene();
+    sphere.position.copy(sphereFrontCenter());
+    setJaw(config.openAngle); angle=config.openAngle; targetAngle=config.openAngle;
+    root.position.set(-0.55,0.25,0.05);
+    moveRootToPutGraspAt(timerPressPoint());
+    state='calib_timer'; setPhase('SET TIMER');
+  }
+}
+function accidentalSecondL(){
+  cancelMotions();
+  const p=profile();
+  state='accidental_l'; setPhase('UNSTABLE GRIP');
+  setJaw(config.openAngle*0.55 + config.closedAngle*0.45);
+  const heavyFail = mode==='heavy' && Math.random() < (p.accidentalRollProbability ?? 0.5);
+  shakeRootInPlace(900,()=>{
+    if(heavyFail){
+      failTrial(currentArm==='shoulder'
+        ? `手首と肘の回転が難しいため、複数回試行しても成功しない場合があります。
+ブッフェなどで片手でトレーを持ち続けることは難しい場面があります。`
+        : `把持中に再度Lを押したため保持が不安定になり、トレー上の物体が倒れました。
+手首と肘の回転が難しいため、複数回の試行が必要になることがあります。
+またトライしますか？`);
+    } else {
+      setJaw(config.closedAngle);
+      const target=rootTargetForGraspAt(sphereGraspTarget(sphereAboveFrontCenter()));
+      moveRootSlowly(target,900,()=>{ state='at_front'; setPhase('PLACE'); });
+    }
+  },Math.max(0.006,p.shakeAmp||0.01),Math.max(0.8,p.shakeFreq||1.3));
+}
+function onL(){
+  if(calibrationMode) return;
+  const holding = sphere && sphere.parent===root;
+  if(holding && ['lifting','crossing','placing'].includes(state)){ accidentalSecondL(); return; }
+  if(moving) return;
+  if(state==='zero_start'){ setPhase('PRESS START'); return; }
+  if(state==='at_start_button'){ setPhase('PRESS BUTTON'); return; }
+  if(state==='ready'){
+    trialCount += 1; trialPhase='grip';
+    setJaw(config.closedAngle); state='gripping'; setPhase('GRIP '+trialCount);
+    const p=profile();
+    const continueGrip=()=>{
+      if(mode==='heavy' && currentArm==='upper' && trialCount < p.guaranteedSuccessTrial){
+        const forcedFail = trialCount <= 2 || Math.random() < p.rollProbabilityGrip;
+        if(forcedFail){ failTrial(`手首と肘の回転が難しいため、複数回の試行が必要になることがあります。
+またトライしますか？`); return; }
+      }
+      if(mode==='heavy' && currentArm==='shoulder' && !(Math.random() < p.successProbability)){
+        failTrial(`手首と肘の回転が難しいため、複数回試行しても成功しない場合があります。
+ブッフェなどで片手でトレーを持ち続けることは難しい場面があります。`); return;
+      }
+      // The tray may be parented to the gripper only after the real HOLD contact
+      // pose has been reached. This prevents carrying a tray that is visibly below
+      // or away from the jaws.
+      if(!canAttachTray()){
+        setJaw(config.openAngle);
+        state='ready';
+        setPhase('CONTACT ERROR');
+        setWarn('HOLD位置でグライファーとトレーが接触していません。SETのHOLDで位置関係を確認してください。');
+        return;
+      }
+      attachSphere(); state='lifting'; setPhase('LIFT');
+      const liftTarget=rootTargetForGraspAt(sphereGraspTarget(sphereLiftCenter()));
+      const liftMs=(mode==='heavy'?p.gripDelay:900*liftMult());
+      const afterLift=()=>{
+        state='crossing'; setPhase('HORIZONTAL MOVE');
+        const aboveTarget=rootTargetForGraspAt(sphereGraspTarget(sphereAboveFrontCenter()));
+        // 把持後は、現在の高さと角度を維持し、X/Z方向だけを移動する。
+        aboveTarget.y=root.position.y;
+        moveRootSlowly(aboveTarget, mode==='heavy'?2600:2100, ()=>{ state='at_front'; setPhase('PLACE'); });
+      };
+      if(mode==='heavy') moveRootWithGentleShake(liftTarget,liftMs,liftMs,afterLift,p.shakeAmp,p.shakeFreq); else moveRootSlowly(liftTarget,liftMs,afterLift);
+    };
+    if(mode==='heavy') shakeRootInPlace(p.gripDelay*0.45,continueGrip,p.shakeAmp,p.shakeFreq); else setTimeout(continueGrip,550);
+  } else if(state==='at_front'){
+    trialPhase='place'; state='placing'; setPhase('PLACE');
+    const p=profile(); const placeTarget=rootTargetForGraspAt(sphereGraspTarget(sphereFrontCenter()));
+    // 設置時は水平方向へ流さず、現在位置から垂直に下降する。
+    placeTarget.x=root.position.x;
+    placeTarget.z=root.position.z;
+    const placeMs=mode==='heavy'?p.placeDelay:650*placeMult();
+    const afterPlace=()=>{
+      if(mode==='heavy' && currentArm==='upper' && trialCount < p.guaranteedSuccessTrial){
+        const forcedFail = trialCount <= 3 || Math.random() < p.rollProbabilityPlace;
+        if(forcedFail){ failTrial(`手首と肘の回転が難しいため、複数回の試行が必要になることがあります。
+またトライしますか？`); return; }
+      }
+      if(mode==='heavy' && currentArm==='shoulder'){
+        failTrial(`手首と肘の回転が難しいため、複数回試行しても成功しない場合があります。
+ブッフェなどで片手でトレーを持ち続けることは難しい場面があります。`); return;
+      }
+      releaseSphereAtFront(); setJaw(config.openAngle); state='released'; setPhase('TO TIMER');
+      const target=rootTargetForGraspAt(timerPressPoint());
+      routeViaClearance(target,()=>{ state='at_timer'; setPhase('PRESS TIMER'); },[450,950,450]);
+    };
+    if(mode==='heavy') moveRootWithGentleShake(placeTarget,placeMs,Math.min(placeMs,900),afterPlace,p.shakeAmp*0.75,p.shakeFreq); else moveRootSlowly(placeTarget,placeMs,afterPlace);
+  } else if(state==='at_timer'){ setPhase('PRESS STOP'); return; }
+  else if(state==='end'){ resetTask(); }
+}
+
+function onStartButton(){
+  if(calibrationMode || moving) return;
+  if(state==='zero_start'){
+    state='to_start_timer'; setPhase('RISE');
+    const timerTarget=rootTargetForGraspAt(timerPressPoint());
+    routeViaClearance(timerTarget,()=>{ state='at_start_button'; setPhase('PRESS BUTTON'); setStartButtonDone(true); },[500,900,450]);
+  }
+}
+function onTimerButton(){
+  if(calibrationMode || moving) return;
+  if(state==='at_start_button'){
+    depressTimerButton(); beginAttemptClock(); setTimerButtonRunning(true);
+    sphere.position.copy(sphereStartCenter());
+    // 1) ボタン接触位置から、SETのGLIFTで確認した絶対高さまで垂直上昇。
+    const gliftY = calibratedGliftY();
+    const glift = new THREE.Vector3(root.position.x, gliftY, root.position.z);
+    setPhase('GLIFT');
+    moveRootSlowly(glift,500,()=>{
+      // 2) GLIFTの高さを一切変えず、その場でHOLD角度へ回転。
+      setPhase('ROTATE AT GLIFT');
+      const fixedY=root.position.y;
+      rotateRootToTaskPose(650,()=>{
+        root.position.y=fixedY;
+        // 3) HOLD姿勢を基準にしたトレー脇ObjSへ、同じ高さのまま水平移動。
+        const hold=holdRootTarget();
+        // ObjS is an overhead waiting pose. It shares HOLD's X/Z and keeps the
+        // calibrated GLIFT height; the tray remains stationary below.
+        const objS=new THREE.Vector3(hold.x, gliftY, hold.z);
+        setPhase('ObjS / ABOVE TRAY');
+        moveRootSlowly(objS,1000,()=>{
+          // Descend only in Y. HOLD is the first real gripper-tray contact pose.
+          setPhase('DESCEND TO HOLD');
+          moveRootSlowly(hold,500,()=>{
+            root.position.copy(hold);
+            root.rotation.copy(taskRotationEuler());
+            state='ready'; setPhase('READY / HOLD CONTACT'); releaseTimerButton();
+          });
+        });
+      });
+    });
+  } else if(state==='at_timer'){
+    depressTimerButton(); stopAttemptClock(); finalSeconds=accumulatedActiveMs/1000;
+    document.getElementById('finalTime').textContent=finalSeconds.toFixed(1)+'s';
+    if(mode==='heavy' && currentArm==='forearm') document.getElementById('endNote').textContent='重量物では手首が摩擦で回転し、姿勢を保ちにくい場合があります。';
+    else if(mode==='heavy' && currentArm==='upper') document.getElementById('endNote').textContent='複数回の試行後、少し揺れながらもゆっくり成功しました。';
+    else document.getElementById('endNote').textContent='';
+    document.getElementById('end').style.display='flex'; state='end'; setPhase('END'); setTimerButtonRunning(false);
+  }
+}
+
+addEventListener('keydown',e=>{ if(e.key==='l'||e.key==='L') onL(); }); document.getElementById('btn').onclick=onL; document.getElementById('startTaskBtn').onclick=onStartButton; document.getElementById('timerTaskBtn').onclick=onTimerButton; document.getElementById('restartBtn').onclick=resetTask;
+document.getElementById('retryTrialBtn').onclick=prepareRetry;
+document.getElementById('finishTrialBtn').onclick=()=>{ document.getElementById('resultModal').style.display='none'; stopAttemptClock(); finalSeconds=accumulatedActiveMs/1000; document.getElementById('finalTime').textContent=finalSeconds.toFixed(1)+'s'; document.getElementById('endNote').textContent=document.getElementById('resultMessage').textContent; document.getElementById('end').style.display='flex'; state='end'; setPhase('END'); };
+
+const ids=['zeroX','zeroY','zeroZ','zeroRX','zeroRY','zeroRZ','prx','pry','prz','gx','gy','gz','baseX','baseY','baseZ','sgx','sgz','sphereX','sphereY','sphereZ','rx','ry','rz','openA','closedA','upperLift','upperPlace','shoulderLift','shoulderPlace','failTiltX','failTiltZ','failObjX','failObjZ','rearX','rearZ','frontX','frontZ','timerX','timerZ'];
+const map={zeroX:['zeroSetBase',0], zeroY:['zeroSetBase',1], zeroZ:['zeroSetBase',2], zeroRX:['zeroSetRot',0], zeroRY:['zeroSetRot',1], zeroRZ:['zeroSetRot',2], prx:['prismRot',0], pry:['prismRot',1], prz:['prismRot',2], gx:['graspLocal',0], gy:['graspLocal',1], gz:['graspLocal',2], baseX:['baseOffset',0], baseY:['baseOffset',1], baseZ:['baseOffset',2], sgx:['sphereGripOffset',0], sgz:['sphereGripOffset',1], sphereX:['spherePosOffset',0], sphereY:['spherePosOffset',1], sphereZ:['spherePosOffset',2], rx:['gripperRot',0], ry:['gripperRot',1], rz:['gripperRot',2], openA:['openAngle'], closedA:['closedAngle'], upperLift:['upperLiftMult'], upperPlace:['upperPlaceMult'], shoulderLift:['shoulderLiftMult'], shoulderPlace:['shoulderPlaceMult'], failTiltX:['failurePose','trayTilt',0], failTiltZ:['failurePose','trayTilt',2], failObjX:['failurePose','payloadStop',0], failObjZ:['failurePose','payloadStop',2], rearX:['rearSlot',0], rearZ:['rearSlot',1], frontX:['frontCup',0], frontZ:['frontCup',1], timerX:['timerButton',0], timerZ:['timerButton',1]};
+
+function wrapRangeInputs(){
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el || el.parentElement.classList.contains('rangeWrap')) return;
+    const wrap=document.createElement('span');
+    wrap.className='rangeWrap';
+    el.parentNode.insertBefore(wrap, el);
+    wrap.appendChild(el);
+    const dot=document.createElement('span');
+    dot.className='initialDot';
+    dot.id=id+'InitDot';
+    wrap.appendChild(dot);
+  });
+}
+function initialValueFor(id){
+  const path=map[id];
+  return path.reduce((o,k)=>o[k], DEFAULT_CONFIG);
+}
+function updateInitialMarkers(){
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    const dot=document.getElementById(id+'InitDot');
+    if(!el || !dot) return;
+    const min=parseFloat(el.min), max=parseFloat(el.max), val=initialValueFor(id);
+    const pct=(val-min)/(max-min)*100;
+    dot.style.left=Math.max(0,Math.min(100,pct))+'%';
+  });
+}
+wrapRangeInputs();
+updateInitialMarkers();
+
+function getVal(path){ return path.reduce((o,k)=>o[k],config); }
+function setVal(path,v){ let o=config; for(let i=0;i<path.length-1;i++) o=o[path[i]]; o[path[path.length-1]]=v; }
+function syncInputs(){ ids.forEach(id=>{ const el=document.getElementById(id); const val=getVal(map[id]); el.value=val; const suffix = ['upperLift','upperPlace','shoulderLift','shoulderPlace'].includes(id) ? '×' : ''; document.getElementById(id+'v').textContent=Number(val).toFixed(3)+suffix; }); document.getElementById('coords').textContent='const CONFIG = '+JSON.stringify(config,null,2)+';'; }
+ids.forEach(id=>{ document.getElementById(id).addEventListener('input', e=>{ setVal(map[id], parseFloat(e.target.value)); syncInputs(); if(calibrationMode) applyCalibrationState(calibrationState); else resetTask(); }); });
+document.getElementById('saveAll').onclick=()=>{ localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); alert('保存しました'); };
+document.getElementById('resetAll').onclick=()=>{ config=clone(DEFAULT_CONFIG); localStorage.removeItem(STORAGE_KEY); syncInputs(); resetTask(); };
+document.getElementById('copyAll').onclick=async()=>{ await navigator.clipboard.writeText('const CONFIG = '+JSON.stringify(config,null,2)+';'); alert('コピーしました'); };
+document.getElementById('panelToggle').onclick=()=>{ const p=document.getElementById('panel'); p.classList.toggle('collapsed'); document.getElementById('panelToggle').textContent=p.classList.contains('collapsed')?'調':'閉じる'; };
+syncInputs();
+updateCalibrationUI();
+
+function animate(){ requestAnimationFrame(animate); controls.update(); updateJaw(); if(timerRunning) document.getElementById('time').textContent=(activeElapsedMs()/1000).toFixed(1); renderer.render(scene,camera); } animate();
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+loadGreifer();
+</script>
+</body>
+</html>
